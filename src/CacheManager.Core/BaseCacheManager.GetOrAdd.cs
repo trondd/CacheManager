@@ -34,6 +34,33 @@ namespace CacheManager.Core
         }
 
         /// <inheritdoc />
+        public TOut GetOrAdd<TOut>(string key, TCacheValue value)
+            => this.GetOrAdd<TOut>(key, (k) => value);
+
+        /// <inheritdoc />
+        public TOut GetOrAdd<TOut>(string key, string region, TCacheValue value)
+            => this.GetOrAdd<TOut>(key, region, (k, r) => value);
+
+        /// <inheritdoc />
+        public TOut GetOrAdd<TOut>(string key, Func<string, TCacheValue> valueFactory)
+        {
+            NotNullOrWhiteSpace(key, nameof(key));
+            NotNull(valueFactory, nameof(valueFactory));
+
+            return this.GetOrAddInternal<TOut>(key, null, (k, r) => valueFactory(k));
+        }
+
+        /// <inheritdoc />
+        public TOut GetOrAdd<TOut>(string key, string region, Func<string, string, TCacheValue> valueFactory)
+        {
+            NotNullOrWhiteSpace(key, nameof(key));
+            NotNullOrWhiteSpace(region, nameof(region));
+            NotNull(valueFactory, nameof(valueFactory));
+
+            return this.GetOrAddInternal<TOut>(key, region, (k, r) => valueFactory(k, r));
+        }
+
+        /// <inheritdoc />
         public bool TryGetOrAdd(string key, Func<string, TCacheValue> valueFactory, out TCacheValue value)
         {
             NotNullOrWhiteSpace(key, nameof(key));
@@ -50,6 +77,33 @@ namespace CacheManager.Core
             NotNull(valueFactory, nameof(valueFactory));
 
             return this.TryGetOrAddInternal(key, region, (k, r) => valueFactory(k, r), out value);
+        }
+
+        /// <inheritdoc />
+        public bool TryGetOrAdd<TOut>(string key, Func<string, TCacheValue> valueFactory, out TOut value)
+        {
+            NotNullOrWhiteSpace(key, nameof(key));
+            NotNull(valueFactory, nameof(valueFactory));
+
+            return this.TryGetOrAddInternal<TOut>(key, null, (k, r) => valueFactory(k), out value);
+        }
+
+        /// <inheritdoc />
+        public bool TryGetOrAdd<TOut>(string key, string region, Func<string, string, TCacheValue> valueFactory, out TOut value)
+        {
+            NotNullOrWhiteSpace(key, nameof(key));
+            NotNullOrWhiteSpace(region, nameof(region));
+            NotNull(valueFactory, nameof(valueFactory));
+
+            return this.TryGetOrAddInternal<TOut>(key, region, (k, r) => valueFactory(k, r), out value);
+        }
+
+        private bool TryGetOrAddInternal<TOut>(string key, string region, Func<string, string, TCacheValue> valueFactory, out TOut value)
+        {
+            TCacheValue cacheValue;
+            var result = TryGetOrAddInternal(key, region, valueFactory, out cacheValue);
+            value = result ? GetCasted<TOut>(cacheValue) : default(TOut);
+            return result;
         }
 
         private bool TryGetOrAddInternal(string key, string region, Func<string, string, TCacheValue> valueFactory, out TCacheValue value)
@@ -82,6 +136,11 @@ namespace CacheManager.Core
             while (tries <= this.Configuration.MaxRetries);
 
             return false;
+        }
+
+        private TOut GetOrAddInternal<TOut>(string key, string region, Func<string, string, TCacheValue> valueFactory)
+        {
+            return GetCasted<TOut>(GetOrAddInternal(key, region, valueFactory));
         }
 
         private TCacheValue GetOrAddInternal(string key, string region, Func<string, string, TCacheValue> valueFactory)
